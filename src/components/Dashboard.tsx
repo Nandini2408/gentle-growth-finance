@@ -1,16 +1,23 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useExpenses } from '@/contexts/ExpenseContext';
 import AddExpenseForm from './AddExpenseForm';
 import ExpenseList from './ExpenseList';
+import SavingsGoals from './SavingsGoals';
+import AnalyticsDashboard from './AnalyticsDashboard';
+import ExpenseCalendar from './ExpenseCalendar';
 import { format } from 'date-fns';
+import { Home, Target, BarChart3, Calendar as CalendarIcon } from 'lucide-react';
+
+type TabType = 'overview' | 'goals' | 'analytics' | 'calendar';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const { expenses, getTotalExpenses } = useExpenses();
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   const currentMonth = format(new Date(), 'MMMM yyyy');
   const thisMonthExpenses = expenses.filter(expense => 
@@ -19,6 +26,84 @@ const Dashboard: React.FC = () => {
   const thisMonthTotal = thisMonthExpenses.reduce((total, expense) => total + expense.amount, 0);
 
   const recentExpenses = expenses.slice(0, 3);
+
+  const tabs = [
+    { id: 'overview' as TabType, label: 'Overview', icon: Home },
+    { id: 'goals' as TabType, label: 'Savings Goals', icon: Target },
+    { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 },
+    { id: 'calendar' as TabType, label: 'Calendar', icon: CalendarIcon },
+  ];
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'goals':
+        return <SavingsGoals />;
+      case 'analytics':
+        return <AnalyticsDashboard />;
+      case 'calendar':
+        return <ExpenseCalendar />;
+      default:
+        return (
+          <div className="space-y-8">
+            {/* Welcome Section */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-heading font-bold text-sage-dark mb-2">
+                Welcome back, {user?.name}! 🌱
+              </h2>
+              <p className="text-gray-600">
+                Let's continue growing your financial future together.
+              </p>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <Card className="shadow-soft border-0 bg-gradient-to-r from-sage to-sage-light text-white">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-medium">Total Expenses</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-mono font-bold">${getTotalExpenses().toFixed(2)}</p>
+                  <p className="text-sage-light mt-1 text-sm">{expenses.length} transactions</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="shadow-soft border-0 bg-gradient-to-r from-bloom-coral to-bloom-yellow text-white">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-medium">This Month</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-mono font-bold">${thisMonthTotal.toFixed(2)}</p>
+                  <p className="text-white/80 mt-1 text-sm">{currentMonth}</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="shadow-soft border-0 bg-gradient-to-r from-bloom-pink to-category-other text-white">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-medium">Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-mono font-bold">{recentExpenses.length}</p>
+                  <p className="text-white/80 mt-1 text-sm">
+                    {recentExpenses.length > 0 
+                      ? `Last: ${format(recentExpenses[0].date, 'MMM dd')}`
+                      : 'No recent activity'
+                    }
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Add Expense Form */}
+            <div className="mb-8">
+              <AddExpenseForm />
+            </div>
+
+            {/* Expense List */}
+            <ExpenseList />
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sage-light/20 via-white to-bloom-pink/10">
@@ -53,63 +138,36 @@ const Dashboard: React.FC = () => {
         </div>
       </header>
 
+      {/* Navigation Tabs */}
+      <div className="bg-white border-b border-sage/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8" aria-label="Tabs">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200
+                    ${activeTab === tab.id 
+                      ? 'border-sage text-sage' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }
+                  `}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-heading font-bold text-sage-dark mb-2">
-            Welcome back, {user?.name}! 🌱
-          </h2>
-          <p className="text-gray-600">
-            Let's continue growing your financial future together.
-          </p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="shadow-soft border-0 bg-gradient-to-r from-sage to-sage-light text-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-medium">Total Expenses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-mono font-bold">${getTotalExpenses().toFixed(2)}</p>
-              <p className="text-sage-light mt-1 text-sm">{expenses.length} transactions</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-soft border-0 bg-gradient-to-r from-bloom-coral to-bloom-yellow text-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-medium">This Month</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-mono font-bold">${thisMonthTotal.toFixed(2)}</p>
-              <p className="text-white/80 mt-1 text-sm">{currentMonth}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="shadow-soft border-0 bg-gradient-to-r from-bloom-pink to-category-other text-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-medium">Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-mono font-bold">{recentExpenses.length}</p>
-              <p className="text-white/80 mt-1 text-sm">
-                {recentExpenses.length > 0 
-                  ? `Last: ${format(recentExpenses[0].date, 'MMM dd')}`
-                  : 'No recent activity'
-                }
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Add Expense Form */}
-        <div className="mb-8">
-          <AddExpenseForm />
-        </div>
-
-        {/* Expense List */}
-        <ExpenseList />
+        {renderTabContent()}
       </main>
     </div>
   );
