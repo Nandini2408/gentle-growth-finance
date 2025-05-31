@@ -81,6 +81,13 @@ export default {
 					shopping: '#96CEB4',
 					health: '#FFEAA7',
 					other: '#DDA0DD'
+				},
+				// Notification colors
+				notification: {
+					success: '#52C41A',
+					warning: '#FAAD14',
+					achievement: '#E9C46A',
+					nudge: '#F4A261'
 				}
 			},
 			borderRadius: {
@@ -126,17 +133,59 @@ export default {
 					'100%': {
 						transform: 'translateY(-2px) scale(1.02)'
 					}
+				},
+				'bounce-in': {
+					'0%': {
+						transform: 'scale(0.3)',
+						opacity: '0'
+					},
+					'50%': {
+						transform: 'scale(1.05)',
+						opacity: '0.8'
+					},
+					'70%': {
+						transform: 'scale(0.9)',
+						opacity: '0.9'
+					},
+					'100%': {
+						transform: 'scale(1)',
+						opacity: '1'
+					}
+				},
+				'celebration': {
+					'0%, 100%': {
+						transform: 'rotate(0deg) scale(1)'
+					},
+					'25%': {
+						transform: 'rotate(-5deg) scale(1.1)'
+					},
+					'75%': {
+						transform: 'rotate(5deg) scale(1.1)'
+					}
+				},
+				'pulse-glow': {
+					'0%, 100%': {
+						boxShadow: '0 0 5px rgba(135, 169, 107, 0.5)'
+					},
+					'50%': {
+						boxShadow: '0 0 20px rgba(135, 169, 107, 0.8)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.3s ease-out',
-				'lift': 'lift 0.2s ease-out'
+				'lift': 'lift 0.2s ease-out',
+				'bounce-in': 'bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+				'celebration': 'celebration 0.6s ease-in-out',
+				'pulse-glow': 'pulse-glow 2s ease-in-out infinite'
 			},
 			boxShadow: {
 				'soft': '0 2px 12px rgba(0, 0, 0, 0.08)',
-				'lift': '0 4px 20px rgba(0, 0, 0, 0.12)'
+				'lift': '0 4px 20px rgba(0, 0, 0, 0.12)',
+				'dark': '0 2px 12px rgba(0, 0, 0, 0.3)',
+				'dark-lift': '0 4px 20px rgba(0, 0, 0, 0.4)'
 			}
 		}
 	},
