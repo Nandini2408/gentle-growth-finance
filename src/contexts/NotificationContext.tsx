@@ -1,25 +1,26 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthContext';
 import { useExpenses } from './ExpenseContext';
 
 export interface Notification {
   id: string;
-  type: 'achievement' | 'warning' | 'nudge' | 'success';
+  type: 'achievement' | 'warning' | 'nudge' | 'weekly_report';
   title: string;
   message: string;
-  timestamp: Date;
-  read: boolean;
+  created_at: Date;
+  is_read: boolean;
   icon?: string;
 }
 
 interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  clearNotification: (id: string) => void;
-  clearAllNotifications: () => void;
+  addNotification: (notification: Omit<Notification, 'id' | 'created_at' | 'is_read'>) => Promise<void>;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  clearNotification: (id: string) => Promise<void>;
+  clearAllNotifications: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -37,51 +38,144 @@ interface NotificationProviderProps {
 }
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { user } = useAuth();
   const { expenses, savingsGoals } = useExpenses();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
-    const newNotification: Notification = {
-      ...notification,
-      id: Date.now().toString(),
-      timestamp: new Date(),
-      read: false,
-    };
-    
-    setNotifications(prev => [newNotification, ...prev]);
-  }, []);
+  // Fetch notifications from Supabase
+  const fetchNotifications = async () => {
+    if (!user) return;
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    );
-  }, []);
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, read: true }))
-    );
-  }, []);
+    if (error) {
+      console.error('Error fetching notifications:', error);
+    } else {
+      const formattedNotifications = data.map(notification => ({
+        ...notification,
+        created_at: new Date(notification.created_at)
+      }));
+      setNotifications(formattedNotifications);
+    }
+  };
 
-  const clearNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-  }, []);
-
-  const clearAllNotifications = useCallback(() => {
-    setNotifications([]);
-  }, []);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  // Smart notification triggers
   useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    } else {
+      setNotifications([]);
+    }
+  }, [user]);
+
+  const addNotification = useCallback(async (notification: Omit<Notification, 'id' | 'created_at' | 'is_read'>) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert([
+        {
+          user_id: user.id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding notification:', error);
+    } else {
+      const newNotification = {
+        ...data,
+        created_at: new Date(data.created_at),
+        icon: notification.icon
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+    }
+  }, [user]);
+
+  const markAsRead = useCallback(async (id: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error marking notification as read:', error);
+    } else {
+      setNotifications(prev => 
+        prev.map(notification => 
+          notification.id === id ? { ...notification, is_read: true } : notification
+        )
+      );
+    }
+  }, [user]);
+
+  const markAllAsRead = useCallback(async () => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false);
+
+    if (error) {
+      console.error('Error marking all notifications as read:', error);
+    } else {
+      setNotifications(prev => 
+        prev.map(notification => ({ ...notification, is_read: true }))
+      );
+    }
+  }, [user]);
+
+  const clearNotification = useCallback(async (id: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error clearing notification:', error);
+    } else {
+      setNotifications(prev => prev.filter(notification => notification.id !== id));
+    }
+  }, [user]);
+
+  const clearAllNotifications = useCallback(async () => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error clearing all notifications:', error);
+    } else {
+      setNotifications([]);
+    }
+  }, [user]);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  // Smart notification triggers (keep existing logic but simplified)
+  useEffect(() => {
+    if (!user) return;
+
     // Check for savings goal milestones
     savingsGoals.forEach(goal => {
-      const progress = (goal.currentAmount / goal.targetAmount) * 100;
+      const progress = (goal.current_amount / goal.target_amount) * 100;
       
-      if (progress >= 50 && progress < 55 && goal.currentAmount > 0) {
+      if (progress >= 50 && progress < 55 && goal.current_amount > 0) {
         addNotification({
           type: 'achievement',
           title: 'Halfway There! 🎉',
@@ -94,66 +188,12 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         addNotification({
           type: 'achievement',
           title: 'Goal Achieved! 🏆',
-          message: `Congratulations! You've reached your "${goal.name}" goal of $${goal.targetAmount.toFixed(2)}!`,
+          message: `Congratulations! You've reached your "${goal.name}" goal of $${goal.target_amount.toFixed(2)}!`,
           icon: '🏆'
         });
       }
     });
-  }, [savingsGoals, addNotification]);
-
-  useEffect(() => {
-    // Check spending patterns
-    const thisWeek = expenses.filter(expense => {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return expense.date >= weekAgo;
-    });
-
-    const lastWeek = expenses.filter(expense => {
-      const twoWeeksAgo = new Date();
-      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return expense.date >= twoWeeksAgo && expense.date < weekAgo;
-    });
-
-    // Group by category
-    const thisWeekByCategory: { [key: string]: number } = {};
-    const lastWeekByCategory: { [key: string]: number } = {};
-
-    thisWeek.forEach(expense => {
-      thisWeekByCategory[expense.category] = (thisWeekByCategory[expense.category] || 0) + expense.amount;
-    });
-
-    lastWeek.forEach(expense => {
-      lastWeekByCategory[expense.category] = (lastWeekByCategory[expense.category] || 0) + expense.amount;
-    });
-
-    // Check for significant increases
-    Object.keys(thisWeekByCategory).forEach(category => {
-      const thisWeekAmount = thisWeekByCategory[category];
-      const lastWeekAmount = lastWeekByCategory[category] || 0;
-      
-      if (lastWeekAmount > 0 && thisWeekAmount > lastWeekAmount * 1.5) {
-        addNotification({
-          type: 'warning',
-          title: 'Spending Alert 📊',
-          message: `Your ${category} spending has increased by ${Math.round(((thisWeekAmount - lastWeekAmount) / lastWeekAmount) * 100)}% this week. Consider a mindful spending day!`,
-          icon: '⚠️'
-        });
-      }
-    });
-
-    // Positive nudges
-    if (thisWeek.length === 0 && lastWeek.length > 0) {
-      addNotification({
-        type: 'nudge',
-        title: 'Great Self-Control! 💪',
-        message: "You haven't logged any expenses this week. If you've been mindful with spending, that's amazing!",
-        icon: '🌟'
-      });
-    }
-  }, [expenses, addNotification]);
+  }, [savingsGoals, addNotification, user]);
 
   return (
     <NotificationContext.Provider

@@ -16,6 +16,9 @@ const Settings: React.FC = () => {
   const { expenses } = useExpenses();
   const { clearAllNotifications } = useNotifications();
   
+  // Get user name from Supabase user metadata or email
+  const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
+  
   const [notificationSettings, setNotificationSettings] = useState({
     achievements: true,
     warnings: true,
@@ -77,7 +80,7 @@ const Settings: React.FC = () => {
         <CardContent className="space-y-4">
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-            <p className="text-sage-dark dark:text-sage-light font-medium">{user?.name}</p>
+            <p className="text-sage-dark dark:text-sage-light font-medium">{userName}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
@@ -248,7 +251,7 @@ const Settings: React.FC = () => {
             <div className="text-sm text-muted-foreground space-y-1">
               <p>• Total Expenses: {expenses.length}</p>
               <p>• Account Created: {user?.email ? 'Active' : 'Guest'}</p>
-              <p>• Data Storage: Local Browser Storage</p>
+              <p>• Data Storage: Supabase Database</p>
             </div>
           </div>
         </CardContent>

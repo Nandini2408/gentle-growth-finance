@@ -26,6 +26,9 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // Get user name from Supabase user metadata or email
+  const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
+
   const currentMonth = format(new Date(), 'MMMM yyyy');
   const thisMonthExpenses = expenses.filter(expense => 
     format(expense.date, 'MMMM yyyy') === currentMonth
@@ -58,7 +61,7 @@ const Dashboard: React.FC = () => {
             {/* Welcome Section */}
             <div className="mb-8">
               <h2 className="text-3xl font-heading font-bold text-sage-dark dark:text-sage-light mb-2">
-                Welcome back, {user?.name}! 🌱
+                Welcome back, {userName}! 🌱
               </h2>
               <p className="text-gray-600 dark:text-gray-300">
                 Let's continue growing your financial future together.
@@ -165,7 +168,7 @@ const Dashboard: React.FC = () => {
 
               <div className="text-right hidden sm:block">
                 <p className="text-sm text-gray-600 dark:text-gray-400">Welcome back,</p>
-                <p className="font-medium text-sage-dark dark:text-sage-light">{user?.name}</p>
+                <p className="font-medium text-sage-dark dark:text-sage-light">{userName}</p>
               </div>
               <Button
                 variant="outline"

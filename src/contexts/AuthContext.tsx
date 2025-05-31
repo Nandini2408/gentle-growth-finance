@@ -1,14 +1,11 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-}
+import { supabase } from '@/integrations/supabase/client';
+import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -27,56 +24,68 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user data
-    const storedUser = localStorage.getItem('budgetbloom_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+      }
+    );
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session?.user?.email);
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const user = {
-      id: '1',
+    const { error } = await supabase.auth.signInWithPassword({
       email,
-      name: email.split('@')[0]
-    };
-    
-    setUser(user);
-    localStorage.setItem('budgetbloom_user', JSON.stringify(user));
-    setIsLoading(false);
+      password,
+    });
+    if (error) {
+      setIsLoading(false);
+      throw error;
+    }
   };
 
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const user = {
-      id: '1',
+    const { error } = await supabase.auth.signUp({
       email,
-      name
-    };
-    
-    setUser(user);
-    localStorage.setItem('budgetbloom_user', JSON.stringify(user));
-    setIsLoading(false);
+      password,
+      options: {
+        data: {
+          name: name,
+        },
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+    if (error) {
+      setIsLoading(false);
+      throw error;
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('budgetbloom_user');
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, session, login, register, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

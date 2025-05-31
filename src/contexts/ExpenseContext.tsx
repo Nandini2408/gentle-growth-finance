@@ -1,5 +1,6 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthContext';
 
 export interface Expense {
   id: string;
@@ -13,22 +14,22 @@ export interface Expense {
 export interface SavingsGoal {
   id: string;
   name: string;
-  targetAmount: number;
-  currentAmount: number;
+  target_amount: number;
+  current_amount: number;
   deadline: Date;
-  createdAt: Date;
+  created_at: Date;
   color?: string;
 }
 
 interface ExpenseContextType {
   expenses: Expense[];
   savingsGoals: SavingsGoal[];
-  addExpense: (expense: Omit<Expense, 'id'>) => void;
-  updateExpense: (id: string, expense: Partial<Expense>) => void;
-  deleteExpense: (id: string) => void;
-  addSavingsGoal: (goal: Omit<SavingsGoal, 'id' | 'createdAt'>) => void;
-  updateSavingsGoal: (id: string, goal: Partial<SavingsGoal>) => void;
-  deleteSavingsGoal: (id: string) => void;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  updateExpense: (id: string, expense: Partial<Expense>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+  addSavingsGoal: (goal: Omit<SavingsGoal, 'id' | 'created_at'>) => Promise<void>;
+  updateSavingsGoal: (id: string, goal: Partial<SavingsGoal>) => Promise<void>;
+  deleteSavingsGoal: (id: string) => Promise<void>;
   getExpensesByCategory: (category?: string) => Expense[];
   getTotalExpenses: () => number;
   filterExpenses: (category?: string, startDate?: Date, endDate?: Date) => Expense[];
@@ -36,6 +37,7 @@ interface ExpenseContextType {
   getCategoryTotals: () => { [key: string]: number };
   getAverageDailySpending: () => number;
   getTopCategory: () => string;
+  isLoading: boolean;
 }
 
 const ExpenseContext = createContext<ExpenseContextType | null>(null);
@@ -49,85 +51,208 @@ export const useExpenses = () => {
 };
 
 export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    // Load expenses from localStorage
-    const storedExpenses = localStorage.getItem('budgetbloom_expenses');
-    if (storedExpenses) {
-      const parsed = JSON.parse(storedExpenses);
-      const expensesWithDates = parsed.map((expense: any) => ({
+  // Fetch expenses from Supabase
+  const fetchExpenses = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching expenses:', error);
+    } else {
+      const formattedExpenses = data.map(expense => ({
         ...expense,
         date: new Date(expense.date)
       }));
-      setExpenses(expensesWithDates);
+      setExpenses(formattedExpenses);
     }
+    setIsLoading(false);
+  };
 
-    // Load savings goals from localStorage
-    const storedGoals = localStorage.getItem('budgetbloom_savings_goals');
-    if (storedGoals) {
-      const parsed = JSON.parse(storedGoals);
-      const goalsWithDates = parsed.map((goal: any) => ({
+  // Fetch savings goals from Supabase
+  const fetchSavingsGoals = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('savings_goals')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching savings goals:', error);
+    } else {
+      const formattedGoals = data.map(goal => ({
         ...goal,
         deadline: new Date(goal.deadline),
-        createdAt: new Date(goal.createdAt)
+        created_at: new Date(goal.created_at)
       }));
-      setSavingsGoals(goalsWithDates);
+      setSavingsGoals(formattedGoals);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    // Save expenses to localStorage whenever expenses change
-    localStorage.setItem('budgetbloom_expenses', JSON.stringify(expenses));
-  }, [expenses]);
+    if (user) {
+      fetchExpenses();
+      fetchSavingsGoals();
+    } else {
+      setExpenses([]);
+      setSavingsGoals([]);
+    }
+  }, [user]);
 
-  useEffect(() => {
-    // Save savings goals to localStorage whenever goals change
-    localStorage.setItem('budgetbloom_savings_goals', JSON.stringify(savingsGoals));
-  }, [savingsGoals]);
+  const addExpense = async (expenseData: Omit<Expense, 'id'>) => {
+    if (!user) return;
 
-  const addExpense = (expenseData: Omit<Expense, 'id'>) => {
-    const newExpense: Expense = {
-      ...expenseData,
-      id: Date.now().toString()
-    };
-    setExpenses(prev => [newExpense, ...prev]);
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert([
+        {
+          user_id: user.id,
+          amount: expenseData.amount,
+          category: expenseData.category,
+          description: expenseData.description,
+          note: expenseData.note,
+          date: expenseData.date.toISOString().split('T')[0],
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding expense:', error);
+      throw error;
+    } else {
+      const newExpense = {
+        ...data,
+        date: new Date(data.date)
+      };
+      setExpenses(prev => [newExpense, ...prev]);
+    }
   };
 
-  const updateExpense = (id: string, expenseData: Partial<Expense>) => {
-    setExpenses(prev => 
-      prev.map(expense => 
-        expense.id === id ? { ...expense, ...expenseData } : expense
-      )
-    );
+  const updateExpense = async (id: string, expenseData: Partial<Expense>) => {
+    if (!user) return;
+
+    const updateData: any = { ...expenseData };
+    if (updateData.date) {
+      updateData.date = updateData.date.toISOString().split('T')[0];
+    }
+
+    const { error } = await supabase
+      .from('expenses')
+      .update(updateData)
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating expense:', error);
+      throw error;
+    } else {
+      setExpenses(prev => 
+        prev.map(expense => 
+          expense.id === id ? { ...expense, ...expenseData } : expense
+        )
+      );
+    }
   };
 
-  const deleteExpense = (id: string) => {
-    setExpenses(prev => prev.filter(expense => expense.id !== id));
+  const deleteExpense = async (id: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting expense:', error);
+      throw error;
+    } else {
+      setExpenses(prev => prev.filter(expense => expense.id !== id));
+    }
   };
 
-  const addSavingsGoal = (goalData: Omit<SavingsGoal, 'id' | 'createdAt'>) => {
-    const newGoal: SavingsGoal = {
-      ...goalData,
-      id: Date.now().toString(),
-      createdAt: new Date()
-    };
-    setSavingsGoals(prev => [...prev, newGoal]);
+  const addSavingsGoal = async (goalData: Omit<SavingsGoal, 'id' | 'created_at'>) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('savings_goals')
+      .insert([
+        {
+          user_id: user.id,
+          name: goalData.name,
+          target_amount: goalData.target_amount,
+          current_amount: goalData.current_amount,
+          deadline: goalData.deadline.toISOString().split('T')[0],
+          color: goalData.color,
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding savings goal:', error);
+      throw error;
+    } else {
+      const newGoal = {
+        ...data,
+        deadline: new Date(data.deadline),
+        created_at: new Date(data.created_at)
+      };
+      setSavingsGoals(prev => [...prev, newGoal]);
+    }
   };
 
-  const updateSavingsGoal = (id: string, goalData: Partial<SavingsGoal>) => {
-    setSavingsGoals(prev => 
-      prev.map(goal => 
-        goal.id === id ? { ...goal, ...goalData } : goal
-      )
-    );
+  const updateSavingsGoal = async (id: string, goalData: Partial<SavingsGoal>) => {
+    if (!user) return;
+
+    const updateData: any = { ...goalData };
+    if (updateData.deadline) {
+      updateData.deadline = updateData.deadline.toISOString().split('T')[0];
+    }
+
+    const { error } = await supabase
+      .from('savings_goals')
+      .update(updateData)
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating savings goal:', error);
+      throw error;
+    } else {
+      setSavingsGoals(prev => 
+        prev.map(goal => 
+          goal.id === id ? { ...goal, ...goalData } : goal
+        )
+      );
+    }
   };
 
-  const deleteSavingsGoal = (id: string) => {
-    setSavingsGoals(prev => prev.filter(goal => goal.id !== id));
+  const deleteSavingsGoal = async (id: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('savings_goals')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting savings goal:', error);
+      throw error;
+    } else {
+      setSavingsGoals(prev => prev.filter(goal => goal.id !== id));
+    }
   };
 
+  // Keep existing helper functions the same
   const getExpensesByCategory = (category?: string) => {
     if (!category) return expenses;
     return expenses.filter(expense => expense.category === category);
@@ -191,7 +316,8 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
       getMonthlyExpenses,
       getCategoryTotals,
       getAverageDailySpending,
-      getTopCategory
+      getTopCategory,
+      isLoading
     }}>
       {children}
     </ExpenseContext.Provider>
