@@ -206,14 +206,15 @@ const AnalyticsDashboard: React.FC = () => {
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
+                          const value = typeof data.value === 'number' ? data.value : parseFloat(data.value) || 0;
                           return (
                             <div className="bg-white p-3 rounded-lg shadow-lg border">
                               <p className="font-medium">{data.name}</p>
                               <p className="text-sm font-mono text-sage-dark">
-                                ${data.value.toFixed(2)}
+                                ${value.toFixed(2)}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {((data.value / totalExpenses) * 100).toFixed(1)}% of total
+                                {((value / totalExpenses) * 100).toFixed(1)}% of total
                               </p>
                             </div>
                           );
@@ -263,11 +264,13 @@ const AnalyticsDashboard: React.FC = () => {
                   <ChartTooltip 
                     content={({ active, payload, label }) => {
                       if (active && payload && payload.length) {
+                        const value = payload[0].value;
+                        const amount = typeof value === 'number' ? value : parseFloat(String(value)) || 0;
                         return (
                           <div className="bg-white p-3 rounded-lg shadow-lg border">
                             <p className="font-medium">{label}</p>
                             <p className="text-sm font-mono text-sage-dark">
-                              ${payload[0].value?.toFixed(2)}
+                              ${amount.toFixed(2)}
                             </p>
                           </div>
                         );
