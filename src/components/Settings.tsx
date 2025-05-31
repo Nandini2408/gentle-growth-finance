@@ -13,7 +13,7 @@ import { Moon, Sun, Download, User, Bell, Palette, Database } from 'lucide-react
 const Settings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
-  const { expenses, categories } = useExpenses();
+  const { expenses } = useExpenses();
   const { clearAllNotifications } = useNotifications();
   
   const [notificationSettings, setNotificationSettings] = useState({
@@ -26,7 +26,6 @@ const Settings: React.FC = () => {
   const handleExportData = () => {
     const data = {
       expenses,
-      categories,
       exportDate: new Date().toISOString(),
       user: user?.email,
     };
