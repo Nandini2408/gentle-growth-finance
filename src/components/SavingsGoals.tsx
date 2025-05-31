@@ -16,20 +16,20 @@ const SavingsGoals: React.FC = () => {
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [newGoal, setNewGoal] = useState({
     name: '',
-    targetAmount: '',
-    currentAmount: '',
+    target_amount: '',
+    current_amount: '',
     deadline: new Date()
   });
 
   const handleAddGoal = () => {
-    if (newGoal.name && newGoal.targetAmount) {
+    if (newGoal.name && newGoal.target_amount) {
       addSavingsGoal({
         name: newGoal.name,
-        targetAmount: parseFloat(newGoal.targetAmount),
-        currentAmount: parseFloat(newGoal.currentAmount) || 0,
+        target_amount: parseFloat(newGoal.target_amount),
+        current_amount: parseFloat(newGoal.current_amount) || 0,
         deadline: newGoal.deadline
       });
-      setNewGoal({ name: '', targetAmount: '', currentAmount: '', deadline: new Date() });
+      setNewGoal({ name: '', target_amount: '', current_amount: '', deadline: new Date() });
       setIsAddingGoal(false);
     }
   };
@@ -83,8 +83,8 @@ const SavingsGoals: React.FC = () => {
                 <Input
                   type="number"
                   placeholder="0.00"
-                  value={newGoal.targetAmount}
-                  onChange={(e) => setNewGoal(prev => ({ ...prev, targetAmount: e.target.value }))}
+                  value={newGoal.target_amount}
+                  onChange={(e) => setNewGoal(prev => ({ ...prev, target_amount: e.target.value }))}
                   className="border-sage/20 focus:border-sage font-mono"
                 />
               </div>
@@ -94,8 +94,8 @@ const SavingsGoals: React.FC = () => {
                 <Input
                   type="number"
                   placeholder="0.00"
-                  value={newGoal.currentAmount}
-                  onChange={(e) => setNewGoal(prev => ({ ...prev, currentAmount: e.target.value }))}
+                  value={newGoal.current_amount}
+                  onChange={(e) => setNewGoal(prev => ({ ...prev, current_amount: e.target.value }))}
                   className="border-sage/20 focus:border-sage font-mono"
                 />
               </div>
@@ -136,8 +136,8 @@ const SavingsGoals: React.FC = () => {
       {/* Goals Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {savingsGoals.map((goal) => {
-          const progress = (goal.currentAmount / goal.targetAmount) * 100;
-          const remaining = goal.targetAmount - goal.currentAmount;
+          const progress = (goal.current_amount / goal.target_amount) * 100;
+          const remaining = goal.target_amount - goal.current_amount;
           
           return (
             <Card key={goal.id} className="shadow-soft border-0 hover:shadow-lift transition-all duration-200">
@@ -197,13 +197,13 @@ const SavingsGoals: React.FC = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Current:</span>
                       <span className="font-mono font-semibold text-sage-dark">
-                        ${goal.currentAmount.toFixed(2)}
+                        ${goal.current_amount.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Target:</span>
                       <span className="font-mono font-semibold text-sage-dark">
-                        ${goal.targetAmount.toFixed(2)}
+                        ${goal.target_amount.toFixed(2)}
                       </span>
                     </div>
                     {remaining > 0 && (

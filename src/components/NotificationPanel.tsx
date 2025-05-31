@@ -111,7 +111,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
                 <div
                   key={notification.id}
                   className={`p-4 border-b border-border/50 last:border-b-0 transition-all duration-200 ${
-                    !notification.read ? 'bg-sage/5 dark:bg-sage/10' : ''
+                    !notification.is_read ? 'bg-sage/5 dark:bg-sage/10' : ''
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -131,12 +131,12 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
                             {notification.message}
                           </p>
                           <p className="text-xs text-muted-foreground mt-2">
-                            {format(notification.timestamp, 'MMM dd, h:mm a')}
+                            {format(notification.created_at, 'MMM dd, h:mm a')}
                           </p>
                         </div>
                         
                         <div className="flex gap-1">
-                          {!notification.read && (
+                          {!notification.is_read && (
                             <Button
                               variant="ghost"
                               size="icon"
